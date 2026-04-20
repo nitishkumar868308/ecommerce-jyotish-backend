@@ -48,6 +48,26 @@ export class ProductsController {
     return this.productsService.findAll();
   }
 
+  @Get('check-sku')
+  @Public()
+  @ApiOperation({
+    summary:
+      'Is this SKU available? Used by the admin form to warn before save.',
+  })
+  @ApiQuery({ name: 'sku', required: true, type: String })
+  @ApiQuery({
+    name: 'ignoreId',
+    required: false,
+    type: String,
+    description: 'Existing product id to ignore (edit flow).',
+  })
+  async checkSku(
+    @Query('sku') sku: string,
+    @Query('ignoreId') ignoreId?: string,
+  ) {
+    return { available: await this.productsService.isSkuAvailable(sku, ignoreId) };
+  }
+
   @Get('fast')
   @Public()
   @ApiOperation({ summary: 'Paginated fast product list' })
@@ -62,6 +82,8 @@ export class ProductsController {
   @ApiQuery({ name: 'sortBy', required: false, type: String })
   @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiQuery({ name: 'letter', required: false, type: String })
+  @ApiQuery({ name: 'platform', required: false, type: String, description: 'wizard | quickgo | jyotish' })
+  @ApiQuery({ name: 'city', required: false, type: String, description: 'QuickGo warehouse city filter' })
   findAllPaginated(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -74,12 +96,27 @@ export class ProductsController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: string,
     @Query('letter') letter?: string,
+    @Query('platform') platform?: string,
+    @Query('city') city?: string,
     @Headers('x-country') countryCode?: string,
   ) {
     return this.productsService.findAllPaginated(
       parseInt(page || '1', 10) || 1,
       parseInt(limit || '20', 10) || 20,
-      { categoryId, subcategoryId, search, tags, minPrice, maxPrice, sortBy, sortOrder, letter, countryCode },
+      {
+        categoryId,
+        subcategoryId,
+        search,
+        tags,
+        minPrice,
+        maxPrice,
+        sortBy,
+        sortOrder,
+        letter,
+        platform,
+        city,
+        countryCode,
+      },
     );
   }
 

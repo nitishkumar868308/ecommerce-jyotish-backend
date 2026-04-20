@@ -4,11 +4,56 @@ import {
   IsBoolean,
   IsInt,
   IsArray,
+  IsNumber,
   ValidateNested,
   IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+/** Single volume-pricing tier. Example: { qty: 20, unitPrice: 2 } */
+export class BulkPricingTierDto {
+  @ApiProperty({ example: 20 })
+  @IsInt()
+  qty: number;
+
+  @ApiProperty({ example: 2 })
+  @IsNumber()
+  unitPrice: number;
+}
+
+/** One resolved attribute value for a variation row. */
+export class AttributeComboEntryDto {
+  @ApiProperty({ example: 'Color' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ example: 'Red' })
+  @IsString()
+  value: string;
+}
+
+export class ProductMarketLinkDto {
+  @ApiProperty({ example: 'United States' })
+  @IsString()
+  @IsNotEmpty()
+  countryName: string;
+
+  @ApiProperty({ example: 'US' })
+  @IsString()
+  @IsNotEmpty()
+  countryCode: string;
+
+  @ApiProperty({ example: 'Amazon' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ example: 'https://amazon.com/dp/XYZ' })
+  @IsString()
+  @IsNotEmpty()
+  url: string;
+}
 
 export class CreateProductVariationDto {
   @ApiProperty()
@@ -24,12 +69,27 @@ export class CreateProductVariationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   price?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  MRP?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   stock?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  short?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -46,6 +106,40 @@ export class CreateProductVariationDto {
   @IsArray()
   @IsString({ each: true })
   image?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  offerId?: number;
+
+  @ApiPropertyOptional({ type: [BulkPricingTierDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BulkPricingTierDto)
+  bulkPricingTiers?: BulkPricingTierDto[];
+
+  @ApiPropertyOptional({ type: [AttributeComboEntryDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AttributeComboEntryDto)
+  attributeCombo?: AttributeComboEntryDto[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  barCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  dimension?: any;
+
+  @ApiPropertyOptional({ type: [Number] })
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  tagIds?: number[];
 }
 
 export class CreateProductDto {
@@ -154,6 +248,13 @@ export class CreateProductDto {
   @IsString()
   minQuantity?: string;
 
+  @ApiPropertyOptional({ type: [BulkPricingTierDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BulkPricingTierDto)
+  bulkPricingTiers?: BulkPricingTierDto[];
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -181,13 +282,24 @@ export class CreateProductDto {
   @Type(() => CreateProductVariationDto)
   variations?: CreateProductVariationDto[];
 
+  @ApiPropertyOptional({ type: [ProductMarketLinkDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductMarketLinkDto)
+  marketLinks?: ProductMarketLinkDto[];
+
   @ApiPropertyOptional({ type: [Number], description: 'Array of tag IDs' })
   @IsOptional()
   @IsArray()
   @IsInt({ each: true })
   tagIds?: number[];
 
-  @ApiPropertyOptional({ type: [Number], description: 'Array of offer IDs' })
+  @ApiPropertyOptional({
+    type: [Number],
+    description:
+      'Deprecated — use offerId for a single product-level offer. Array of offer IDs still accepted for backward compatibility.',
+  })
   @IsOptional()
   @IsArray()
   @IsInt({ each: true })

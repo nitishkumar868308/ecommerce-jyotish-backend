@@ -7,6 +7,17 @@ export class CreateWarehouseDto {
   @ApiProperty() @IsString() address: string;
   @ApiProperty() @IsString() code: string;
   @ApiProperty() @IsString() pincode: string;
+
+  @ApiPropertyOptional({ description: 'State.id from the Location master.' })
+  @IsInt()
+  @IsOptional()
+  cityRefId?: number;
+
+  @ApiPropertyOptional({ description: 'City name (denormalised).' })
+  @IsString()
+  @IsOptional()
+  city?: string;
+
   @ApiPropertyOptional() @IsOptional() @IsString() contact?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() fulfillmentWarehouseId?: number;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() active?: boolean;

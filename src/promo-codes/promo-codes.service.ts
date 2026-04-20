@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePromoCodeDto, ApplyPromoDto } from './dto';
+import { CreatePromoCodeDto, UpdatePromoCodeDto, ApplyPromoDto } from './dto';
 
 @Injectable()
 export class PromoCodesService {
@@ -27,6 +27,35 @@ export class PromoCodesService {
         eligibleUsers: dto.eligibleUsers ?? undefined,
         active: dto.active ?? true,
       },
+    });
+  }
+
+  async update(id: number, dto: UpdatePromoCodeDto) {
+    const existing = await this.prisma.promoCode.findUnique({ where: { id } });
+    if (!existing || existing.deleted) {
+      throw new NotFoundException('Promo code not found');
+    }
+    const data: Record<string, unknown> = {};
+    if (dto.code !== undefined) data.code = dto.code;
+    if (dto.appliesTo !== undefined) data.appliesTo = dto.appliesTo;
+    if (dto.discountType !== undefined) data.discountType = dto.discountType;
+    if (dto.discountValue !== undefined) data.discountValue = dto.discountValue;
+    if (dto.usageLimit !== undefined) data.usageLimit = dto.usageLimit;
+    if (dto.validFrom !== undefined) data.validFrom = new Date(dto.validFrom);
+    if (dto.validTill !== undefined) data.validTill = new Date(dto.validTill);
+    if (dto.eligibleUsers !== undefined) data.eligibleUsers = dto.eligibleUsers;
+    if (dto.active !== undefined) data.active = dto.active;
+    return this.prisma.promoCode.update({ where: { id }, data });
+  }
+
+  async delete(id: number) {
+    const existing = await this.prisma.promoCode.findUnique({ where: { id } });
+    if (!existing || existing.deleted) {
+      throw new NotFoundException('Promo code not found');
+    }
+    return this.prisma.promoCode.update({
+      where: { id },
+      data: { deleted: true, active: false },
     });
   }
 

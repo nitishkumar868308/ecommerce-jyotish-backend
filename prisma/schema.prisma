@@ -111,6 +111,11 @@ model Product {
   isDefault           Json?
   bulkPrice           String?
   minQuantity         String?
+  /// Multi-tier volume pricing: [{ qty: number, unitPrice: number }]. When a
+  /// user crosses a tier's qty threshold, that tier's unitPrice overrides the
+  /// normal price (and any active offer stops applying — offer wins below the
+  /// bulk threshold, bulk wins above it).
+  bulkPricingTiers    Json?
   barCode             String?
   MRP                 String?
   platform            String[]           @default([])
@@ -143,6 +148,12 @@ model ProductVariation {
   short               String?
   bulkPrice           String?
   minQuantity         String?
+  bulkPricingTiers    Json?
+  /// Which attribute values this variation represents, e.g.
+  ///   [{ "name": "Color", "value": "Red" }, { "name": "Size", "value": "M" }]
+  /// Stored verbatim so the edit UI can restore the chips without re-joining
+  /// against a normalised attribute-selection table.
+  attributeCombo      Json?
   barCode             String?
   MRP                 String?
   dimension           Json?
@@ -242,6 +253,9 @@ model Address {
 model Tag {
   id         Int                @id @default(autoincrement())
   name       String
+  /// Auto-generated on create/update from `name`. Uniqueness is enforced so a
+  /// storefront route never collides on two tags sharing a slug.
+  slug       String             @unique
   active     Boolean            @default(true)
   image      String?
   deleted    Boolean            @default(false)
@@ -293,6 +307,7 @@ model ContactMessage {
   id           Int            @id @default(autoincrement())
   name         String
   email        String
+  subject      String?
   message      String
   isDeleted    Boolean        @default(false)
   createdAt    DateTime       @default(now())
@@ -375,7 +390,16 @@ model ShippingPricing {
 
 model State {
   id            Int           @id @default(autoincrement())
+  // Display values (kept denormalised so downstream consumers —
+  // banners/categories — don't need to join on Country/StateCountry/CityCountry).
+  countryId     Int?
+  countryName   String?
+  // `name` holds the state's display name; `stateRefId` points at the source
+  // StateCountry row used to pick it.
+  stateRefId    Int?
   name          String
+  cityRefId     Int?
+  city          String?
   active        Boolean       @default(true)
   deleted       Int           @default(0)
   createdAt     DateTime      @default(now())
@@ -387,6 +411,11 @@ model State {
 model WareHouse {
   id                     Int         @id @default(autoincrement())
   state                  String
+  /// Optional reference to the Location master (State table) row for this
+  /// warehouse's city — lets us surface accurate city + state without extra
+  /// joins while keeping the denormalised strings for backward compat.
+  cityRefId              Int?
+  city                   String?
   name                   String
   address                String
   code                   String
@@ -896,6 +925,24 @@ model BangaloreIncreffMappingSKU {
   ourSku     String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+// Lightweight in-app notifications, addressed by recipient type + id.
+// `recipientType` keeps one table for admin + astrologer + user streams.
+model Notification {
+  id            Int      @id @default(autoincrement())
+  recipientType String   // "ADMIN" | "ASTROLOGER" | "USER"
+  recipientId   Int?     // null for ADMIN broadcast
+  type          String   // "CHAT_REQUEST" | "FREE_OFFER" | "PROFILE_APPROVED" | ...
+  title         String
+  body          String?
+  link          String?  // in-app deep link
+  read          Boolean  @default(false)
+  readAt        DateTime?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([recipientType, recipientId, read, createdAt])
 }
 
 model Country {

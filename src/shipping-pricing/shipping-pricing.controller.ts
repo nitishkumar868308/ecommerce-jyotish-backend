@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -36,7 +37,7 @@ export class ShippingPricingController {
   }
 
   @Post()
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create shipping pricing (Admin)' })
   create(@Body() dto: CreateShippingPricingDto) {
@@ -44,10 +45,18 @@ export class ShippingPricingController {
   }
 
   @Put(':id')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update shipping pricing (Admin)' })
   update(@Param('id') id: string, @Body() dto: UpdateShippingPricingDto) {
     return this.service.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Soft delete shipping pricing (Admin)' })
+  remove(@Param('id') id: string) {
+    return this.service.remove(id);
   }
 }

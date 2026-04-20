@@ -2,14 +2,25 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  IncreffService,
+  normaliseCity,
+  shouldFulfilViaIncreff,
+} from '../increff/increff.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(OrdersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly increff: IncreffService,
+  ) {}
 
   /** Generate a unique order number: ORD-YYYYMMDD-XXXXX */
   private generateOrderNumber(): string {
@@ -25,13 +36,17 @@ export class OrdersService {
   async create(dto: CreateOrderDto) {
     const orderNumber = this.generateOrderNumber();
 
+    // Normalise shipping city so downstream fulfilment always sees
+    // "bangalore" regardless of which spelling the shopper typed.
+    const normalisedShippingCity = normaliseCity(dto.shippingAddress?.city);
+
     const order = await this.prisma.orders.create({
       data: {
         userId: dto.userId ?? null,
         shippingName: dto.shippingAddress?.name ?? null,
         shippingPhone: dto.shippingAddress?.phone ?? null,
         shippingAddress: dto.shippingAddress?.address ?? null,
-        shippingCity: dto.shippingAddress?.city ?? null,
+        shippingCity: normalisedShippingCity || dto.shippingAddress?.city || null,
         shippingState: dto.shippingAddress?.state ?? null,
         shippingPincode: dto.shippingAddress?.pincode ?? null,
         billingName: dto.billingAddress?.name ?? null,
@@ -57,6 +72,25 @@ export class OrdersService {
         locationCode: dto.warehouseCode ?? null,
       },
     });
+
+    // Trigger Increff fulfilment for QuickGo-in-Bangalore orders. Fire and
+    // forget so the customer's create-order response isn't blocked — the
+    // service logs failures and /increff/orders/:id/pack can be retried
+    // manually from the admin panel.
+    if (
+      shouldFulfilViaIncreff({
+        platform: (dto as any).platform,
+        shippingCity: dto.shippingAddress?.city,
+      })
+    ) {
+      void this.increff
+        .packOrder(order.id)
+        .catch((err) =>
+          this.logger.error(
+            `Increff packorder for ${order.id} failed: ${err instanceof Error ? err.message : err}`,
+          ),
+        );
+    }
 
     return order;
   }

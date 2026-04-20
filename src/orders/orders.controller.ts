@@ -82,7 +82,7 @@ export class OrdersController {
   }
 
   @Get('orders')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Get all orders (admin)' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
@@ -103,7 +103,7 @@ export class OrdersController {
   }
 
   @Put('orders')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Update order status, payment info (admin)' })
   update(@Body() dto: UpdateOrderDto) {
     return this.ordersService.update(dto);
@@ -140,14 +140,14 @@ export class OrdersController {
   // ── Order Adjustments ──
 
   @Post('order-adjustments')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Create order adjustment (admin)' })
   createAdjustment(@Body() dto: CreateAdjustmentDto) {
     return this.ordersService.createAdjustment(dto);
   }
 
   @Get('order-adjustments')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Get adjustments for an order (admin)' })
   @ApiQuery({ name: 'orderId', required: true })
   getAdjustments(@Query('orderId', ParseIntPipe) orderId: number) {

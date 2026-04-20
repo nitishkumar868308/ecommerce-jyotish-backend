@@ -23,4 +23,15 @@ export class PricingService {
     if (!existing) throw new NotFoundException('Country pricing not found');
     return this.prisma.countryPricing.update({ where: { id }, data: dto });
   }
+
+  async remove(id: number) {
+    const existing = await this.prisma.countryPricing.findFirst({
+      where: { id, deleted: 0 },
+    });
+    if (!existing) throw new NotFoundException('Country pricing not found');
+    return this.prisma.countryPricing.update({
+      where: { id },
+      data: { deleted: 1 },
+    });
+  }
 }

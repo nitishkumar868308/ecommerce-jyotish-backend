@@ -12,7 +12,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { WarehouseService } from './warehouse.service';
 import { CreateWarehouseDto, UpdateWarehouseDto, CreateTransferDto, CreateDispatchDto } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../common/guards';
-import { Roles } from '../common/decorators';
+import { Roles, Public } from '../common/decorators';
 
 @ApiTags('Warehouse')
 @Controller()
@@ -28,6 +28,16 @@ export class WarehouseController {
   @ApiOperation({ summary: 'Get all warehouses' })
   findAll() {
     return this.warehouseService.findAll();
+  }
+
+  @Public()
+  @Get('warehouse/public-cities')
+  @ApiOperation({
+    summary:
+      'Public lookup — active warehouses grouped by city with their pincodes. Used by storefront landing selectors.',
+  })
+  findPublicCities() {
+    return this.warehouseService.findPublicCities();
   }
 
   @Post('warehouse')

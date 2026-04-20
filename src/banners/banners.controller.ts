@@ -29,7 +29,7 @@ export class BannersController {
   }
 
   @Post()
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a banner (Admin)' })
   create(@Body() dto: CreateBannerDto) {
@@ -37,7 +37,7 @@ export class BannersController {
   }
 
   @Put(':id')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a banner (Admin)' })
   update(
@@ -48,7 +48,7 @@ export class BannersController {
   }
 
   @Delete(':id')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Soft delete a banner (Admin)' })
   remove(@Param('id', ParseIntPipe) id: number) {

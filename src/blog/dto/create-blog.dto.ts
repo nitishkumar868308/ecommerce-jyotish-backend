@@ -37,6 +37,11 @@ export class CreateBlogDto {
   @IsBoolean()
   isPublished?: boolean;
 
+  @ApiPropertyOptional({ default: true, description: 'Included in public listings when true.' })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
   @ApiPropertyOptional({ example: 'https://img.example.com/author.jpg' })
   @IsOptional()
   @IsString()

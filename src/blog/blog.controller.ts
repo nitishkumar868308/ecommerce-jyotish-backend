@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Delete, Body, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { BlogService } from './blog.service';
 import { CreateBlogDto, UpdateBlogDto } from './dto';
@@ -28,18 +38,21 @@ export class BlogController {
   }
 
   @Roles('ADMIN')
-  @Put()
+  @Put(':id')
   @ApiOperation({ summary: 'Update a blog post (Admin)' })
-  async update(@Body() dto: UpdateBlogDto) {
-    const data = await this.blogService.update(dto);
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateBlogDto,
+  ) {
+    const data = await this.blogService.update({ ...dto, id });
     return { success: true, message: 'Blog updated successfully', data };
   }
 
   @Roles('ADMIN')
-  @Delete()
+  @Delete(':id')
   @ApiOperation({ summary: 'Soft delete a blog post (Admin)' })
-  async delete(@Body() body: { id: number }) {
-    const data = await this.blogService.delete(body.id);
+  async delete(@Param('id', ParseIntPipe) id: number) {
+    const data = await this.blogService.delete(id);
     return { success: true, message: 'Blog deleted successfully', data };
   }
 }

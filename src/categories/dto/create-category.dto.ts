@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsBoolean,
   IsArray,
+  IsInt,
 } from 'class-validator';
 
 export class CreateCategoryDto {
@@ -33,4 +34,14 @@ export class CreateCategoryDto {
   @IsString()
   @IsOptional()
   hsn?: string;
+
+  @ApiPropertyOptional({
+    example: [1, 2, 3],
+    type: [Number],
+    description: 'IDs from the State (location master) table to link.',
+  })
+  @IsArray()
+  @IsInt({ each: true })
+  @IsOptional()
+  stateIds?: number[];
 }

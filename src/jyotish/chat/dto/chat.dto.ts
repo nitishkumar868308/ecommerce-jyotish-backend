@@ -34,6 +34,15 @@ export class RejectChatDto {
   @ApiProperty({ example: 1 })
   @IsInt()
   astrologerId: number;
+
+  @ApiPropertyOptional({
+    example: 'Busy with another consultation',
+    description:
+      'Shown to the user and stored on the session for admin review.',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 export class EndChatDto {

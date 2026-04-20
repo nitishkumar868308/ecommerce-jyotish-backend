@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import {
   RequestChatDto,
   AcceptChatDto,
@@ -15,7 +16,10 @@ import {
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async requestChat(dto: RequestChatDto) {
     let pricePerMinute = 0;
@@ -29,7 +33,7 @@ export class ChatService {
       }
     }
 
-    return this.prisma.astrologerChatSession.create({
+    const session = await this.prisma.astrologerChatSession.create({
       data: {
         userId: dto.userId,
         astrologerId: dto.astrologerId,
@@ -39,6 +43,23 @@ export class ChatService {
       },
       include: { user: true, astrologer: true },
     });
+
+    // Fire-and-forget notification to the astrologer: "new chat request".
+    const userLabel =
+      (session.user as any)?.fullName ??
+      (session.user as any)?.name ??
+      'a user';
+    void this.notifications.create({
+      recipientType: 'ASTROLOGER',
+      recipientId: dto.astrologerId,
+      type: 'CHAT_REQUEST',
+      title: `New chat request from ${userLabel}`,
+      body: 'Accept or reject from your dashboard.',
+      link: '/jyotish/astrologer-dashboard',
+      metadata: { sessionId: session.id },
+    });
+
+    return session;
   }
 
   async acceptChat(dto: AcceptChatDto) {
@@ -55,7 +76,7 @@ export class ChatService {
     }
 
     const now = new Date();
-    return this.prisma.astrologerChatSession.update({
+    const updated = await this.prisma.astrologerChatSession.update({
       where: { id: dto.sessionId },
       data: {
         status: 'ACTIVE',
@@ -64,6 +85,23 @@ export class ChatService {
       },
       include: { user: true, astrologer: true },
     });
+
+    // Tell the user the chat is live.
+    const astrologerLabel =
+      (updated.astrologer as any)?.displayName ??
+      (updated.astrologer as any)?.fullName ??
+      'Your astrologer';
+    void this.notifications.create({
+      recipientType: 'USER',
+      recipientId: session.userId,
+      type: 'CHAT_ACCEPTED',
+      title: `${astrologerLabel} accepted the chat`,
+      body: 'Your session has started — tap to open the chat.',
+      link: `/jyotish/chat/${updated.id}`,
+      metadata: { sessionId: updated.id },
+    });
+
+    return updated;
   }
 
   async rejectChat(dto: RejectChatDto) {
@@ -79,11 +117,42 @@ export class ChatService {
       throw new BadRequestException('Session is not in PENDING status');
     }
 
-    return this.prisma.astrologerChatSession.update({
+    const reason = dto.reason?.trim() || null;
+
+    const updated = await this.prisma.astrologerChatSession.update({
       where: { id: dto.sessionId },
-      data: { status: 'REJECTED' },
+      data: {
+        status: 'REJECTED',
+        // `rejectionReason` column is optional — falls back to note field
+        // when the primary column isn't migrated yet.
+        ...(reason ? ({ rejectionReason: reason } as any) : {}),
+      },
       include: { user: true, astrologer: true },
     });
+
+    void this.notifications.create({
+      recipientType: 'USER',
+      recipientId: session.userId,
+      type: 'CHAT_REJECTED',
+      title: 'Your chat request was declined',
+      body:
+        reason ||
+        'The astrologer is busy right now. Please try another astrologer.',
+      link: '/jyotish/consult-now',
+      metadata: { sessionId: updated.id, reason },
+    });
+
+    // Surface rejection to admin so support can follow up if needed.
+    void this.notifications.create({
+      recipientType: 'ADMIN',
+      type: 'CHAT_REJECTED',
+      title: `Chat rejected by astrologer #${dto.astrologerId}`,
+      body: reason || 'No reason provided.',
+      link: '/admin/jyotish/astrologer-detail',
+      metadata: { sessionId: updated.id, astrologerId: dto.astrologerId },
+    });
+
+    return updated;
   }
 
   async endChat(dto: EndChatDto) {

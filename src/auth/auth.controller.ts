@@ -3,6 +3,9 @@ import {
   Post,
   Get,
   Put,
+  Delete,
+  Param,
+  ParseIntPipe,
   Body,
   Query,
   Res,
@@ -91,6 +94,16 @@ export class AuthController {
   async updateUser(@Body() dto: UpdateUserDto) {
     const user = await this.authService.updateUser(dto);
     return { success: true, message: 'User updated successfully', user };
+  }
+
+  @Delete('users/:id')
+  @ApiOperation({ summary: 'Delete a user (Admin only)' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async deleteUser(@Param('id', ParseIntPipe) id: number) {
+    await this.authService.deleteUser(id);
+    return { success: true, message: 'User deleted successfully' };
   }
 
   @Public()

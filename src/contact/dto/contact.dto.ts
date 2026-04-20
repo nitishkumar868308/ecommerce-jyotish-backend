@@ -12,6 +12,11 @@ export class CreateContactDto {
   @IsNotEmpty()
   email: string;
 
+  @ApiPropertyOptional({ example: 'Order question' })
+  @IsString()
+  @IsOptional()
+  subject?: string;
+
   @ApiProperty({ example: 'I need help with my order' })
   @IsString()
   @IsNotEmpty()
@@ -30,17 +35,31 @@ export class MarkReadDto {
 }
 
 export class ReplyContactDto {
-  @ApiProperty({ example: 1 })
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
   @IsInt()
-  contactMessageId: number;
+  contactMessageId?: number;
 
-  @ApiProperty({ example: 'admin' })
+  @ApiPropertyOptional({ example: 'admin', default: 'admin' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  sender: string;
+  sender?: string;
 
-  @ApiProperty({ example: 'Thank you for reaching out...' })
+  @ApiPropertyOptional({ example: 'Re: Order question' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  message: string;
+  subject?: string;
+
+  @ApiPropertyOptional({
+    example: 'Thank you for reaching out...',
+    description: 'Reply body. Either `body` or `message` is accepted.',
+  })
+  @IsOptional()
+  @IsString()
+  body?: string;
+
+  @ApiPropertyOptional({ example: 'Thank you for reaching out...' })
+  @IsOptional()
+  @IsString()
+  message?: string;
 }

@@ -37,7 +37,7 @@ export class CountryTaxController {
   }
 
   @Get('all')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all country tax entries (Admin)' })
   findAllAdmin() {
@@ -45,7 +45,7 @@ export class CountryTaxController {
   }
 
   @Post()
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create country tax entry (Admin)' })
   create(@Body() dto: CreateCountryTaxDto) {
@@ -53,7 +53,7 @@ export class CountryTaxController {
   }
 
   @Put(':id')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update country tax entry (Admin)' })
   update(

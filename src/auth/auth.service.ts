@@ -143,6 +143,7 @@ export class AuthService {
 
   async getAllUsers() {
     const users = await this.prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         name: true,
@@ -151,12 +152,24 @@ export class AuthService {
         gender: true,
         phone: true,
         createdAt: true,
+        updatedAt: true,
         profileImage: true,
+        city: true,
+        state: true,
         country: true,
+        pincode: true,
+        address: true,
+        provider: true,
         walletBalance: true,
       },
     });
     return users;
+  }
+
+  async deleteUser(id: number) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    return this.prisma.user.delete({ where: { id } });
   }
 
   async updateUser(dto: UpdateUserDto) {

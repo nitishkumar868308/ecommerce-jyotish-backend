@@ -29,4 +29,15 @@ export class ShippingPricingService {
     if (!existing) throw new NotFoundException('Shipping pricing not found');
     return this.prisma.shippingPricing.update({ where: { id }, data: dto });
   }
+
+  async remove(id: string) {
+    const existing = await this.prisma.shippingPricing.findFirst({
+      where: { id, deleted: 0 },
+    });
+    if (!existing) throw new NotFoundException('Shipping pricing not found');
+    return this.prisma.shippingPricing.update({
+      where: { id },
+      data: { deleted: 1 },
+    });
+  }
 }

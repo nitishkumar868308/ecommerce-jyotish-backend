@@ -15,6 +15,49 @@ export class WarehouseService {
     });
   }
 
+  /**
+   * Public lookup used by the QuickGo landing page. Returns active warehouses
+   * grouped by city along with the pincodes available at each — so the user
+   * can pick a city first, then the nearest/their pincode.
+   */
+  async findPublicCities() {
+    const warehouses = await this.prisma.wareHouse.findMany({
+      where: { deleted: false, active: true },
+      orderBy: { city: 'asc' },
+      select: {
+        id: true,
+        city: true,
+        state: true,
+        pincode: true,
+        cityRefId: true,
+      },
+    });
+
+    const grouped = new Map<
+      string,
+      {
+        city: string;
+        state: string;
+        cityRefId: number | null;
+        pincodes: string[];
+      }
+    >();
+    for (const w of warehouses) {
+      const cityName = w.city?.trim();
+      if (!cityName) continue;
+      const key = `${cityName}__${w.state}`;
+      const bucket = grouped.get(key) ?? {
+        city: cityName,
+        state: w.state,
+        cityRefId: w.cityRefId ?? null,
+        pincodes: [],
+      };
+      if (!bucket.pincodes.includes(w.pincode)) bucket.pincodes.push(w.pincode);
+      grouped.set(key, bucket);
+    }
+    return Array.from(grouped.values());
+  }
+
   create(dto: CreateWarehouseDto) {
     return this.prisma.wareHouse.create({ data: dto });
   }

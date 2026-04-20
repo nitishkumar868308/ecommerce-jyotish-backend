@@ -1,7 +1,20 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PromoCodesService } from './promo-codes.service';
-import { CreatePromoCodeDto, ApplyPromoDto } from './dto';
+import {
+  CreatePromoCodeDto,
+  UpdatePromoCodeDto,
+  ApplyPromoDto,
+} from './dto';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 
@@ -24,6 +37,25 @@ export class PromoCodesController {
   async create(@Body() dto: CreatePromoCodeDto) {
     const data = await this.promoCodesService.create(dto);
     return { success: true, message: 'Promo code created successfully', data };
+  }
+
+  @Roles('ADMIN')
+  @Put(':id')
+  @ApiOperation({ summary: 'Update a promo code (Admin)' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePromoCodeDto,
+  ) {
+    const data = await this.promoCodesService.update(id, dto);
+    return { success: true, message: 'Promo code updated successfully', data };
+  }
+
+  @Roles('ADMIN')
+  @Delete(':id')
+  @ApiOperation({ summary: 'Soft-delete a promo code (Admin)' })
+  async delete(@Param('id', ParseIntPipe) id: number) {
+    const data = await this.promoCodesService.delete(id);
+    return { success: true, message: 'Promo code deleted successfully', data };
   }
 
   @Public()

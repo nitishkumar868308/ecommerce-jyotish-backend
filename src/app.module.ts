@@ -41,6 +41,7 @@ import { VideoStoryModule } from './video-story/video-story.module';
 import { WarehouseModule } from './warehouse/warehouse.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { SkuMappingModule } from './sku-mapping/sku-mapping.module';
+import { IncreffModule } from './increff/increff.module';
 
 // Jyotish
 import { JyotishModule } from './jyotish/jyotish.module';
@@ -49,6 +50,8 @@ import { JyotishModule } from './jyotish/jyotish.module';
 import { ContactModule } from './contact/contact.module';
 import { UploadModule } from './upload/upload.module';
 import { DocumentsModule } from './documents/documents.module';
+import { MailModule } from './mail/mail.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -95,14 +98,17 @@ import { DocumentsModule } from './documents/documents.module';
     WarehouseModule,
     InventoryModule,
     SkuMappingModule,
+    IncreffModule,
 
     // Jyotish
     JyotishModule,
 
     // Misc
+    MailModule,
     ContactModule,
     UploadModule,
     DocumentsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

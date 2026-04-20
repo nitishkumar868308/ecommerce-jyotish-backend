@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   ParseIntPipe,
@@ -28,7 +29,7 @@ export class PricingController {
   }
 
   @Post()
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create country pricing (Admin)' })
   create(@Body() dto: CreateCountryPricingDto) {
@@ -36,7 +37,7 @@ export class PricingController {
   }
 
   @Put(':id')
-  @Roles('admin')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update country pricing (Admin)' })
   update(
@@ -44,5 +45,13 @@ export class PricingController {
     @Body() dto: UpdateCountryPricingDto,
   ) {
     return this.service.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Soft delete country pricing (Admin)' })
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(id);
   }
 }

@@ -69,7 +69,7 @@ export class CartService {
 
       // Find rangeBuyXGetY offer (deduplicate by id)
       const seenOfferIds = new Set<number>();
-      const allOffers = [];
+      const allOffers: typeof product.offers = [];
       if (product.primaryOffer) {
         seenOfferIds.add(product.primaryOffer.id);
         allOffers.push(product.primaryOffer);
