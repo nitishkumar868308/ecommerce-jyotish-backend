@@ -13,6 +13,16 @@ export class DonationsService {
     });
   }
 
+  // Storefront-facing: only campaigns flagged `active: true`. `countryCode`
+  // is accepted for forward-compatibility (the storefront already passes it)
+  // but isn't applied until the schema grows a country column.
+  async findActive(_countryCode?: string) {
+    return this.prisma.donationCampaign.findMany({
+      where: { active: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async create(dto: CreateCampaignDto) {
     return this.prisma.donationCampaign.create({ data: dto });
   }

@@ -6,9 +6,10 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ProfileEditService } from './profile-edit.service';
 import {
   CreateProfileEditRequestDto,
@@ -31,6 +32,19 @@ export class ProfileEditController {
   @Roles('ADMIN')
   async findAll() {
     const data = await this.profileEditService.findAll();
+    return { success: true, data };
+  }
+
+  @Public()
+  @Get('by-astrologer/:astrologerId')
+  @ApiOperation({
+    summary:
+      'Requests scoped to one astrologer — the astrologer dashboard reads this so they can see their own submissions without admin auth.',
+  })
+  async findForAstrologer(
+    @Param('astrologerId', ParseIntPipe) astrologerId: number,
+  ) {
+    const data = await this.profileEditService.findForAstrologer(astrologerId);
     return { success: true, data };
   }
 

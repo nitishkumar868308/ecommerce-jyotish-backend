@@ -13,8 +13,20 @@ export class ShippingPricingService {
   }
 
   async findByCountry(country: string) {
+    // Match either the display name (e.g. "India") or the ISO code ("IN",
+    // "IND") the storefront might pass. Case-insensitive so "india" vs
+    // "India" don't trip us. Any admin row whose `country` or `code`
+    // matches counts.
+    const needle = String(country ?? '').trim();
+    if (!needle) return [];
     return this.prisma.shippingPricing.findMany({
-      where: { deleted: 0, country },
+      where: {
+        deleted: 0,
+        OR: [
+          { country: { equals: needle, mode: 'insensitive' } },
+          { code: { equals: needle, mode: 'insensitive' } },
+        ],
+      },
     });
   }
 

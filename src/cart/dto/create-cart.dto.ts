@@ -1,12 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsBoolean,
-  IsInt,
-  IsObject,
-} from 'class-validator';
+import { IsString, IsInt, IsOptional, IsObject } from 'class-validator';
 
 export class CreateCartDto {
   @ApiProperty()
@@ -19,90 +12,24 @@ export class CreateCartDto {
   variationId?: string;
 
   @ApiProperty()
-  @IsString()
-  productName: string;
-
-  @ApiProperty()
   @IsInt()
   quantity: number;
 
-  @ApiProperty()
-  @IsNumber()
-  pricePerItem: number;
-
-  @ApiProperty()
-  @IsString()
-  currencySymbol: string;
-
-  @ApiProperty()
-  @IsNumber()
-  totalPrice: number;
-
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Free-form attribute map (e.g. { Color: "Red", Form: "Pack of 2" }). Stored verbatim; used for grouping + display.',
+  })
   @IsObject()
-  attributes: any;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  image?: string;
+  attributes: Record<string, string>;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
   userId?: number;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  selectedCountry?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  currency?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  barCode?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  bulkPrice?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsInt()
-  bulkMinQty?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  offerApplied?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  productOfferApplied?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  productOfferDiscount?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsObject()
-  productOffer?: any;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsInt()
-  productOfferId?: number;
-
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Storefront the item was added from — "wizard" or "quickgo".',
+  })
   @IsOptional()
   @IsString()
   purchasePlatform?: string;

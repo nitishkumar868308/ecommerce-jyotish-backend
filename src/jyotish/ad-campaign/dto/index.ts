@@ -1,1 +1,6 @@
-export { BookAdDto, CreateAdConfigDto } from './ad-campaign.dto';
+export {
+  BookAdDto,
+  CreateAdConfigDto,
+  CreateAdCampaignDto,
+  UpdateAdCampaignDto,
+} from './ad-campaign.dto';

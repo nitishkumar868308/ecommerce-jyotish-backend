@@ -5,6 +5,7 @@ import {
   Put,
   Delete,
   Body,
+  Param,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -29,20 +30,58 @@ export class AddressController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new address' })
-  async create(@Body() dto: CreateAddressDto) {
-    const data = await this.addressService.create(dto);
+  async create(
+    @Body() dto: CreateAddressDto,
+    @CurrentUser('id') userId: number,
+  ) {
+    const data = await this.addressService.create(dto, userId);
     return { success: true, message: 'Address created successfully', data };
   }
 
-  @Put()
-  @ApiOperation({ summary: 'Update an existing address' })
-  async update(@Body() dto: UpdateAddressDto) {
-    const data = await this.addressService.update(dto);
+  // Modern REST route used by the storefront + dashboard.
+  @Put(':id')
+  @ApiOperation({ summary: 'Update an address by id (REST)' })
+  async updateById(
+    @Param('id') id: string,
+    @Body() dto: UpdateAddressDto,
+    @CurrentUser('id') userId: number,
+  ) {
+    const data = await this.addressService.update(
+      { ...dto, id },
+      userId,
+    );
     return { success: true, message: 'Address updated successfully', data };
   }
 
+  // Legacy route kept for seeders / older tooling that sent id in the body.
+  @Put()
+  @ApiOperation({ summary: 'Update an address (id in body)' })
+  async update(
+    @Body() dto: UpdateAddressDto,
+    @CurrentUser('id') userId: number,
+  ) {
+    if (!dto.id) {
+      return {
+        success: false,
+        message: 'id is required in the body when using PUT /address',
+      };
+    }
+    const data = await this.addressService.update(
+      dto as UpdateAddressDto & { id: string },
+      userId,
+    );
+    return { success: true, message: 'Address updated successfully', data };
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete an address by id (REST)' })
+  async deleteById(@Param('id') id: string) {
+    const data = await this.addressService.delete(id);
+    return { success: true, message: 'Address deleted successfully', data };
+  }
+
   @Delete()
-  @ApiOperation({ summary: 'Delete an address' })
+  @ApiOperation({ summary: 'Delete an address (id in body)' })
   async delete(@Body() body: { id: string }) {
     const data = await this.addressService.delete(body.id);
     return { success: true, message: 'Address deleted successfully', data };

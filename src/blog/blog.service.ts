@@ -28,7 +28,7 @@ export class BlogService {
     return this.prisma.blog.create({ data: dto });
   }
 
-  async update(dto: UpdateBlogDto) {
+  async update(dto: UpdateBlogDto & { id: number }) {
     const { id, ...data } = dto;
     const blog = await this.prisma.blog.findUnique({ where: { id } });
     if (!blog || blog.deleted) throw new NotFoundException('Blog not found');

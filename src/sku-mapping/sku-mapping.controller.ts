@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Post,
+  Body,
+  Param,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SkuMappingService } from './sku-mapping.service';
 import { CreateSkuMappingDto } from './dto';
@@ -19,9 +28,32 @@ export class SkuMappingController {
     return this.skuMappingService.findAll();
   }
 
+  @Get('inventory')
+  @ApiOperation({
+    summary:
+      'List Bangalore inventory rows joined with their mapping status (if any)',
+  })
+  findInventoryWithMappings() {
+    return this.skuMappingService.findInventoryWithMappings();
+  }
+
+  @Get('internal-skus')
+  @ApiOperation({
+    summary: 'List every internal product + variation SKU for mapping pickers',
+  })
+  listInternalSkus() {
+    return this.skuMappingService.listInternalSkus();
+  }
+
   @Post()
-  @ApiOperation({ summary: 'Create a SKU mapping' })
+  @ApiOperation({ summary: 'Create (or replace) a SKU mapping' })
   create(@Body() dto: CreateSkuMappingDto) {
     return this.skuMappingService.create(dto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Remove a SKU mapping' })
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.skuMappingService.remove(id);
   }
 }

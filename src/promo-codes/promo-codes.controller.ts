@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PromoCodesService } from './promo-codes.service';
@@ -29,6 +30,20 @@ export class PromoCodesController {
   async findAll() {
     const data = await this.promoCodesService.findAll();
     return { success: true, message: 'Promo codes fetched successfully', data };
+  }
+
+  @Public()
+  @Get('active')
+  @ApiOperation({
+    summary:
+      'Active promo codes visible to the shopper. Pass userId so private (specific-user) codes are included when eligible and per-user usage state is computed.',
+  })
+  async findPublic(@Query('userId') userId?: string) {
+    const uid = userId ? Number(userId) : undefined;
+    const data = await this.promoCodesService.findPublic(
+      Number.isFinite(uid) ? (uid as number) : undefined,
+    );
+    return { success: true, data };
   }
 
   @Roles('ADMIN')

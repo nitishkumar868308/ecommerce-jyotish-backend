@@ -1,5 +1,25 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString } from 'class-validator';
+
+export class StartChatSessionDto {
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  userId: number;
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  astrologerId: number;
+
+  @ApiPropertyOptional({ example: 'chat', enum: ['chat', 'call'] })
+  @IsOptional()
+  @IsIn(['chat', 'call'])
+  type?: 'chat' | 'call';
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsInt()
+  @IsOptional()
+  serviceId?: number;
+}
 
 export class RequestChatDto {
   @ApiProperty({ example: 1 })
@@ -55,4 +75,18 @@ export class ResumeChatDto {
   @ApiProperty({ example: 1 })
   @IsInt()
   sessionId: number;
+}
+
+export class SendMessageDto {
+  @ApiProperty({ example: 'USER', enum: ['USER', 'ASTROLOGER'] })
+  @IsIn(['USER', 'ASTROLOGER'])
+  senderType: 'USER' | 'ASTROLOGER';
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  senderId: number;
+
+  @ApiProperty({ example: 'Namaste, how can I help?' })
+  @IsString()
+  text: string;
 }

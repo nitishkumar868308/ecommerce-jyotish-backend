@@ -140,6 +140,14 @@ export class CreateProductVariationDto {
   @IsArray()
   @IsInt({ each: true })
   tagIds?: number[];
+
+  @ApiPropertyOptional({
+    description:
+      'Display order. Usually set implicitly by the server from the array index, but clients can override.',
+  })
+  @IsOptional()
+  @IsInt()
+  sortOrder?: number;
 }
 
 export class CreateProductDto {

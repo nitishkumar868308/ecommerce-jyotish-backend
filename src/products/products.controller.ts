@@ -83,7 +83,8 @@ export class ProductsController {
   @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiQuery({ name: 'letter', required: false, type: String })
   @ApiQuery({ name: 'platform', required: false, type: String, description: 'wizard | quickgo | jyotish' })
-  @ApiQuery({ name: 'city', required: false, type: String, description: 'QuickGo warehouse city filter' })
+  @ApiQuery({ name: 'city', required: false, type: String, description: 'QuickGo: effective fulfillment city' })
+  @ApiQuery({ name: 'pincode', required: false, type: String, description: 'QuickGo: shopper pincode — drives warehouse match' })
   findAllPaginated(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -98,6 +99,7 @@ export class ProductsController {
     @Query('letter') letter?: string,
     @Query('platform') platform?: string,
     @Query('city') city?: string,
+    @Query('pincode') pincode?: string,
     @Headers('x-country') countryCode?: string,
   ) {
     return this.productsService.findAllPaginated(
@@ -115,17 +117,57 @@ export class ProductsController {
         letter,
         platform,
         city,
+        pincode,
         countryCode,
       },
     );
+  }
+
+  @Get('search')
+  @Public()
+  @ApiOperation({
+    summary:
+      'Token-AND autocomplete search across product name, SKU, description, tags, and every variation\'s name / SKU / attribute combo. QuickGo-aware when city+pincode are supplied.',
+  })
+  @ApiHeader({ name: 'x-country', required: false })
+  @ApiQuery({ name: 'q', required: true, type: String })
+  @ApiQuery({ name: 'platform', required: false, type: String })
+  @ApiQuery({ name: 'city', required: false, type: String })
+  @ApiQuery({ name: 'pincode', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  search(
+    @Query('q') q?: string,
+    @Query('platform') platform?: string,
+    @Query('city') city?: string,
+    @Query('pincode') pincode?: string,
+    @Query('limit') limit?: string,
+    @Headers('x-country') countryCode?: string,
+  ) {
+    return this.productsService.search({
+      q: q ?? '',
+      platform,
+      city,
+      pincode,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      countryCode,
+    });
   }
 
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get a single product by ID' })
   @ApiHeader({ name: 'x-country', required: false, description: 'Country code for price conversion' })
-  findOne(@Param('id') id: string, @Headers('x-country') countryCode?: string) {
-    return this.productsService.findOne(id, countryCode);
+  @ApiQuery({ name: 'city', required: false, type: String, description: 'QuickGo: effective fulfillment city — filters variations to locally-stocked ones' })
+  @ApiQuery({ name: 'pincode', required: false, type: String, description: 'QuickGo: shopper pincode' })
+  findOne(
+    @Param('id') id: string,
+    @Query('city') city?: string,
+    @Query('pincode') pincode?: string,
+    @Headers('x-country') countryCode?: string,
+  ) {
+    const quickGo =
+      city && pincode ? { city, pincode } : undefined;
+    return this.productsService.findOne(id, countryCode, quickGo);
   }
 
   @Put()

@@ -6,11 +6,19 @@ import {
   Delete,
   Body,
   Query,
+  Param,
+  ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { WarehouseService } from './warehouse.service';
-import { CreateWarehouseDto, UpdateWarehouseDto, CreateTransferDto, CreateDispatchDto } from './dto';
+import {
+  CreateWarehouseDto,
+  UpdateWarehouseDto,
+  CreateTransferDto,
+  CreateDispatchDto,
+  CreateSendToWarehouseDto,
+} from './dto';
 import { JwtAuthGuard, RolesGuard } from '../common/guards';
 import { Roles, Public } from '../common/decorators';
 
@@ -94,5 +102,29 @@ export class WarehouseController {
   @ApiOperation({ summary: 'Get all Delhi warehouse stock' })
   findAllDelhiStock() {
     return this.warehouseService.findAllDelhiStock();
+  }
+
+  @Put('delhi-store/:id')
+  @ApiOperation({ summary: 'Update stock on a Delhi warehouse row' })
+  updateDelhiStock(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    body: { stock?: number; status?: string; minStock?: number },
+  ) {
+    return this.warehouseService.updateDelhiStock(id, body);
+  }
+
+  // ─── Send to Warehouse (admin queue) ───
+
+  @Get('send_to_warehouse')
+  @ApiOperation({ summary: 'List stock transfers from the Send-to-warehouse queue' })
+  findAllSendToWarehouse() {
+    return this.warehouseService.findAllSendToWarehouse();
+  }
+
+  @Post('send_to_warehouse')
+  @ApiOperation({ summary: 'Dispatch a row from the Send-to-warehouse queue' })
+  createSendToWarehouse(@Body() dto: CreateSendToWarehouseDto) {
+    return this.warehouseService.createSendToWarehouse(dto);
   }
 }

@@ -46,11 +46,16 @@ import { IncreffModule } from './increff/increff.module';
 // Jyotish
 import { JyotishModule } from './jyotish/jyotish.module';
 
+// Book Consultant (shared service catalog)
+import { BookConsultantModule } from './book-consultant/book-consultant.module';
+
 // Misc
 import { ContactModule } from './contact/contact.module';
 import { UploadModule } from './upload/upload.module';
 import { DocumentsModule } from './documents/documents.module';
 import { MailModule } from './mail/mail.module';
+import { PayuModule } from './payu/payu.module';
+import { PayGlocalModule } from './payglocal/payglocal.module';
 import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
@@ -102,9 +107,12 @@ import { NotificationsModule } from './notifications/notifications.module';
 
     // Jyotish
     JyotishModule,
+    BookConsultantModule,
 
     // Misc
     MailModule,
+    PayuModule,
+    PayGlocalModule,
     ContactModule,
     UploadModule,
     DocumentsModule,

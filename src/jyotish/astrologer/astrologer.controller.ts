@@ -5,6 +5,7 @@ import {
   Put,
   Delete,
   Body,
+  Param,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -79,11 +80,67 @@ export class AstrologerController {
   }
 
   @Public()
+  @Post('astrologer/:id/online')
+  @ApiOperation({ summary: 'Astrologer toggles their own online status' })
+  async setOnline(
+    @Param('id') id: string,
+    @Body() body: { online: boolean },
+  ) {
+    const data = await this.astrologerService.setOnline(
+      Number(id),
+      !!body.online,
+    );
+    return { success: true, data };
+  }
+
+  @Public()
   @Get('check-display-name')
   @ApiOperation({ summary: 'Check display name availability' })
   @ApiQuery({ name: 'displayName', required: true })
-  async checkDisplayName(@Query('displayName') displayName: string) {
-    const data = await this.astrologerService.checkDisplayName(displayName);
+  @ApiQuery({ name: 'ignoreId', required: false, type: Number })
+  async checkDisplayName(
+    @Query('displayName') displayName: string,
+    @Query('ignoreId') ignoreId?: string,
+  ) {
+    const data = await this.astrologerService.checkDisplayName(
+      displayName,
+      ignoreId ? Number(ignoreId) : undefined,
+    );
+    return { success: true, data };
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Astrologer forgot password — emails a 6-digit OTP' })
+  async forgotPassword(@Body() body: { email: string }) {
+    const data = await this.astrologerService.forgotPassword(body.email);
+    return { success: true, data };
+  }
+
+  @Public()
+  @Post('verify-forgot-otp')
+  @ApiOperation({ summary: 'Astrologer: verify reset OTP (non-consuming)' })
+  async verifyAstroForgotOtp(
+    @Body() body: { email: string; otp: string },
+  ) {
+    const data = await this.astrologerService.verifyForgotOtp(
+      body.email,
+      body.otp,
+    );
+    return { success: true, data };
+  }
+
+  @Public()
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Astrologer: reset password with OTP' })
+  async resetAstroPassword(
+    @Body() body: { email: string; otp: string; password: string },
+  ) {
+    const data = await this.astrologerService.resetPassword(
+      body.email,
+      body.otp,
+      body.password,
+    );
     return { success: true, data };
   }
 }

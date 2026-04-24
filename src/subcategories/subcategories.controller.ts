@@ -27,10 +27,19 @@ export class SubcategoriesController {
   @Get()
   @ApiOperation({ summary: 'Get all subcategories' })
   @ApiQuery({ name: 'categoryId', required: false, type: Number })
-  async findAll(@Query('categoryId') categoryId?: string) {
+  @ApiQuery({ name: 'platform', required: false, type: String, description: 'Filter subcategories opted into this surface (also enforces parent-category match).' })
+  @ApiQuery({ name: 'city', required: false, type: String, description: 'QuickGo: filter subcategories assigned to this city (parent category must also be assigned).' })
+  async findAll(
+    @Query('categoryId') categoryId?: string,
+    @Query('platform') platform?: string,
+    @Query('city') city?: string,
+  ) {
     const data = categoryId
-      ? await this.subcategoriesService.findByCategoryId(+categoryId)
-      : await this.subcategoriesService.findAll();
+      ? await this.subcategoriesService.findByCategoryId(+categoryId, {
+          platform,
+          city,
+        })
+      : await this.subcategoriesService.findAll({ platform, city });
     return { success: true, data };
   }
 

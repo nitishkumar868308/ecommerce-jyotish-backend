@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { DonationsService } from './donations.service';
 import {
@@ -21,6 +21,18 @@ export class DonationsController {
   async findAll() {
     const data = await this.donationsService.findAll();
     return { success: true, message: 'Campaigns fetched successfully', data };
+  }
+
+  // The storefront checkout hits `/donations/country/:code` to surface only
+  // the active campaigns for the shopper's country. The schema doesn't carry
+  // a country column today, so this returns the currently-active campaigns
+  // and lets the UI treat country as informational until that column lands.
+  @Public()
+  @Get('country/:code')
+  @ApiOperation({ summary: 'Get active donation campaigns for a country' })
+  async findActiveByCountry(@Param('code') code: string) {
+    const data = await this.donationsService.findActive(code);
+    return { success: true, message: 'Active campaigns fetched', data };
   }
 
   @Roles('ADMIN')

@@ -6,9 +6,33 @@ import { CreateCategoryDto, UpdateCategoryDto } from './dto';
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
+  /**
+   * Public category listing. Two optional filters, both used by
+   * QuickGo:
+   *   - `platform`: only return categories whose `platform` array
+   *     contains this key (e.g. "quickgo"). Wizard callers pass
+   *     nothing and get the full list.
+   *   - `city`: only return categories whose `states` relation
+   *     includes at least one State row with a matching city. Filtering
+   *     is done via the relation instead of the State.name so admins
+   *     who assign a state by city name get the expected behaviour
+   *     regardless of state spelling.
+   */
+  async findAll(opts?: { platform?: string; city?: string }) {
+    const where: any = { deleted: 0 };
+    if (opts?.platform) {
+      where.platform = { has: opts.platform.toLowerCase() };
+    }
+    if (opts?.city) {
+      where.states = {
+        some: {
+          deleted: 0,
+          city: { equals: opts.city.trim(), mode: 'insensitive' },
+        },
+      };
+    }
     return this.prisma.category.findMany({
-      where: { deleted: 0 },
+      where,
       include: {
         subcategories: { where: { deleted: 0 } },
         states: { where: { deleted: 0 } },

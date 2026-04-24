@@ -108,14 +108,21 @@ export class AuthController {
 
   @Public()
   @Post('forgot-password')
-  @ApiOperation({ summary: 'Request password reset' })
+  @ApiOperation({ summary: 'Request password reset — emails a 6-digit OTP' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
 
   @Public()
+  @Post('verify-forgot-otp')
+  @ApiOperation({ summary: 'Verify a password-reset OTP (non-consuming)' })
+  async verifyForgotOtp(@Body() body: { email: string; otp: string }) {
+    return this.authService.verifyForgotOtp(body.email, body.otp);
+  }
+
+  @Public()
   @Post('reset-password')
-  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiOperation({ summary: 'Reset password with the OTP received via email' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
   }

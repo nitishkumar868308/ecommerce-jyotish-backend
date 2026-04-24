@@ -1,10 +1,14 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsString, IsBoolean, IsOptional } from 'class-validator';
 
 export class UpdateBlogDto {
-  @ApiProperty({ example: 1 })
+  // ID comes from the URL param (ParseIntPipe) — controller merges it back in
+  // before calling the service. Kept optional here so body validation doesn't
+  // reject requests that (correctly) omit it.
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
   @IsInt()
-  id: number;
+  id?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

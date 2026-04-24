@@ -6,10 +6,11 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -25,8 +26,13 @@ export class CategoriesController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Get all categories' })
-  async findAll() {
-    const data = await this.categoriesService.findAll();
+  @ApiQuery({ name: 'platform', required: false, type: String, description: 'Filter to categories opted into this surface (e.g. "quickgo").' })
+  @ApiQuery({ name: 'city', required: false, type: String, description: 'QuickGo: filter to categories assigned to this city.' })
+  async findAll(
+    @Query('platform') platform?: string,
+    @Query('city') city?: string,
+  ) {
+    const data = await this.categoriesService.findAll({ platform, city });
     return { success: true, data };
   }
 

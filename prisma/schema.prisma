@@ -25,11 +25,14 @@ model User {
   state        String?
   provider     String    @default("LOCAL")
   walletBalance Float    @default(0)
+  lastLoginAt  DateTime?
   addresses    Address[]
   carts        Cart[]
   orders       Orders[]
   walletTransactions WalletTransaction[]
   astrologerChatSessions AstrologerChatSession[]
+  astrologerReviews AstrologerReview[]
+  astrologerFreeOfferUsages AstrologerFreeOfferUsage[]
 }
 
 model WalletTransaction {
@@ -120,6 +123,10 @@ model Product {
   MRP                 String?
   platform            String[]           @default([])
   dimension           Json?
+  /// Attribute names that should be IGNORED when grouping cart lines for
+  /// offer/bulk eligibility. e.g. ["Color"] means two lines differing only in
+  /// Color count as the same group and share offer/bulk thresholds.
+  offerIgnoreAttributes String[]         @default([])
   marketLinks         MarketLink[]
   category            Category?          @relation(fields: [categoryId], references: [id])
   primaryOffer        Offer?             @relation("PrimaryOffer", fields: [offerId], references: [id])
@@ -157,6 +164,11 @@ model ProductVariation {
   barCode             String?
   MRP                 String?
   dimension           Json?
+  /// Admin-controlled order for the storefront variation picker. Persisted
+  /// from the drag-and-drop reorder in the product form — index in the
+  /// array at save-time becomes this column, so `orderBy: { sortOrder }`
+  /// on read gives the exact layout the admin set.
+  sortOrder           Int      @default(0)
   offer               Offer?   @relation("OfferToVariation", fields: [offerId], references: [id])
   product             Product  @relation(fields: [productId], references: [id])
   tags                Tag[]    @relation("VariationTags")
@@ -202,33 +214,27 @@ model CountryPricing {
   conversionRate Float?
 }
 
+/// Cart stores only raw user intent (what they picked + how many). All
+/// computed values (offer/bulk/price/currency) are derived server-side at
+/// read time via CartService so the client can never tamper with them.
 model Cart {
-  id                   String   @id @default(uuid())
-  productId            String
-  variationId          String?
-  productName          String
-  quantity             Int
-  pricePerItem         Float
-  currencySymbol       String
-  totalPrice           Float
-  attributes           Json
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  image                String?
-  userId               Int?
-  selectedCountry      String?
-  currency             String?
-  is_buy               Boolean? @default(false)
-  bulkMinQty           Int?
-  bulkPrice            Float?
-  offerApplied         Boolean? @default(false)
-  productOfferApplied  Boolean? @default(false)
-  productOfferDiscount Float?
-  productOffer         Json?
-  productOfferId       Int?
-  barCode              String?
-  purchasePlatform     String?  @default("website")
-  user                 User?    @relation(fields: [userId], references: [id])
+  id               String   @id @default(uuid())
+  userId           Int?
+  productId        String
+  variationId      String?
+  quantity         Int
+  /// Free-form attribute map snapshot from when the item was added (e.g.
+  /// { "Color": "Red", "Form": "Pack of 2" }). Used for display + offer
+  /// grouping — full set kept, ignored-keys filtered out at compute time.
+  attributes       Json
+  is_buy           Boolean? @default(false)
+  purchasePlatform String?  @default("website")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
 }
 
 model Address {
@@ -333,25 +339,43 @@ model MessageReply {
 model Orders {
   id                 Int                 @id @default(autoincrement())
   userId             Int?
+  userName           String?
+  userEmail          String?
+  userPhone          String?
   shippingName       String?
   shippingPhone      String?
   shippingAddress    String?
   shippingCity       String?
   shippingState      String?
   shippingPincode    String?
+  shippingCountry    String?
   billingName        String?
   billingPhone       String?
   billingAddress     String?
   billingCity        String?
   billingState       String?
   billingPincode     String?
-  items              Json
+  billingCountry     String?
   subtotal           Float?
   shippingCharges    Float?
   taxAmount          Float?
   discountAmount     Float?
   totalAmount        Float?
+  /// Snapshot of the currency the customer was shown + paid in. Everything
+  /// the user sees (invoice, emails, dashboards) uses this — never recompute.
+  paymentCurrency    String?
+  currencySymbol     String?
+  /// INR→paymentCurrency multiplier at order time. Lets us reconcile to INR
+  /// ledger without a second conversion lookup later.
+  conversionRate     Float?
+  baseTotalAmount    Float?
   paymentMethod      String?
+  /// PayU (or other gateway) transaction id captured on successful callback.
+  paymentTxnId       String?
+  paymentPaidAt      DateTime?
+  /// Raw failure / cancellation reason echoed by PayU. Useful when the
+  /// admin needs to explain a declined payment to the shopper.
+  paymentError       String?
   status             OrderStatus         @default(PENDING)
   paymentStatus      PaymentStatus       @default(PENDING)
   active             Boolean             @default(true)
@@ -359,18 +383,80 @@ model Orders {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   orderNumber        String?             @unique
-  paymentCurrency    String?
   orderBy            String?
   donationAmount     Float?
   donationCampaignId Int?
   note               String?
   promoCode          String?
+  promoDiscount      Float?
   trackingLink       String?
+  /// Invoice fields are only populated once payment is confirmed. The
+  /// sequence is atomically incremented via the InvoiceSequence table.
   invoiceDate        DateTime?
   invoiceNumber      String?             @unique
+  fiscalYear         Int?
+  invoiceSeq         Int?
   locationCode       String?
   user               User?               @relation(fields: [userId], references: [id])
+  orderItems         OrderItem[]
   adjustments        order_adjustments[]
+
+  @@index([userId])
+  @@index([fiscalYear, invoiceSeq])
+}
+
+/// Line-item snapshot. Everything needed to render an invoice / admin view
+/// without joining back to Product or Offer (those can change post-order).
+model OrderItem {
+  id                   Int      @id @default(autoincrement())
+  orderId              Int
+  productId            String
+  variationId          String?
+  productName          String
+  variationName        String?
+  sku                  String?
+  fnsku                String?
+  barCode              String?
+  image                String?
+
+  quantity             Int
+  paidQty              Int
+  freeQty              Int      @default(0)
+
+  originalPrice        Float
+  pricePerItem         Float
+  bulkApplied          Boolean  @default(false)
+  bulkMinQty           Int?
+  bulkPrice            Float?
+
+  offerApplied         Boolean  @default(false)
+  offerId              Int?
+  offerName            String?
+  productOfferDiscount Float?
+
+  savedAmount          Float    @default(0)
+  /// Offer/bulk grouping key used at order-create time (productId +
+  /// attributes-minus-ignored). Kept so admin can see which lines shared an
+  /// offer even though they had different colours etc.
+  groupKey             String?
+  currency             String?
+  currencySymbol       String?
+  attributes           Json?
+  createdAt            DateTime @default(now())
+
+  order                Orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+/// Single row per fiscal year. Invoice generation does an atomic
+/// `UPDATE ... SET lastSeq = lastSeq + 1 RETURNING lastSeq` inside a
+/// transaction so two concurrent payments can't collide on the same number.
+model InvoiceSequence {
+  fiscalYear Int      @id
+  lastSeq    Int      @default(0)
+  updatedAt  DateTime @updatedAt
 }
 
 model ShippingPricing {
@@ -751,6 +837,11 @@ model AstrologerAccount {
   password          String?
   credentialsSent   Boolean  @default(false)
   isBusy            Boolean  @default(false)
+  /// Astrologer-controlled availability switch (distinct from admin's
+  /// isActive). When false, public listings + booking flows hide the
+  /// astrologer even if they're approved + active. Toggled from the
+  /// astrologer dashboard's online/offline pill.
+  isOnline          Boolean  @default(false)
   profile           AstrologerProfile?
   services          AstrologerService[]
   documents         AstrologerVerificationDocument[]
@@ -760,6 +851,9 @@ model AstrologerAccount {
   editRequests ProfileEditRequest[]
   adBookings AdBooking[]
   chatSessions AstrologerChatSession[]
+  adminMessages AdminAstrologerMessage[]
+  reviews     AstrologerReview[]
+  freeOffers  AstrologerFreeOffer[]
 }
 
 model AdCampaignConfig {
@@ -772,6 +866,38 @@ model AdCampaignConfig {
   consultSliderDisplayCount Int      @default(20)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
+}
+
+model JyotishTaxConfig {
+  id         Int      @id @default(autoincrement())
+  gstPercent Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model AdCampaign {
+  id        Int      @id @default(autoincrement())
+  title     String
+  price     Float
+  capacity  Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FreeConsultationOffer {
+  id               Int       @id @default(autoincrement())
+  title            String
+  description      String?
+  astrologerAmount Float     @default(0)
+  adminAmount      Float     @default(0)
+  sessionsCap      Int       @default(0)
+  sessionsUsed     Int       @default(0)
+  startDate        DateTime?
+  endDate          DateTime?
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model AdBooking {
@@ -920,11 +1046,23 @@ model BangaloreIncreffInventory {
 }
 
 model BangaloreIncreffMappingSKU {
-  id         Int      @id @default(autoincrement())
-  channelSku String
-  ourSku     String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  channelSku   String
+  ourSku       String
+  // Per-location override for the same channel SKU. `null` (the default)
+  // means the mapping applies to every location that carries this
+  // channelSku — one-click mapping for the common case. A non-null value
+  // narrows the mapping to that specific Increff location code so an admin
+  // can route the same channelSku to different internal SKUs per warehouse.
+  locationCode String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // PostgreSQL unique indexes treat NULLs as distinct, so two NULL-location
+  // rows for the same channelSku can theoretically coexist. The service
+  // guards against that on write; this index still prevents duplicate
+  // per-location overrides landing for the same (channelSku, locationCode).
+  @@unique([channelSku, locationCode])
 }
 
 // Lightweight in-app notifications, addressed by recipient type + id.
@@ -1051,6 +1189,7 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+  CANCELLED
 }
 
 enum PromoDiscountType {
@@ -1119,18 +1258,104 @@ model AstrologerChatSession {
   endReason         String?
 
   minutesBilled     Int               @default(0)
+  /// Actual seconds billed — used for the partial-minute proration on
+  /// session end so a 3:10 session charges for the extra 10 seconds
+  /// instead of rounding them away. totalCharged is always authoritative
+  /// but secondsBilled lets the UI show "3m 10s" accurately.
+  secondsBilled     Int               @default(0)
   totalCharged      Float             @default(0)
+  gstAmount         Float             @default(0)
   astrologerEarning Float             @default(0)
   adminEarning      Float             @default(0)
   lastTickAt        DateTime?
 
+  /// Free-offer snapshot captured at accept time. If a paid astrologer
+  /// ran a "first N minutes free" offer, `freeMinutesGranted` holds
+  /// the N; tickBilling skips charges while `secondsBilled` is inside
+  /// that window. `freeOfferId` links back to the offer for reporting.
+  freeMinutesGranted Int              @default(0)
+  freeOfferId        Int?
+  freeOffer          AstrologerFreeOffer? @relation(fields: [freeOfferId], references: [id])
+
   user              User              @relation(fields: [userId], references: [id])
   astrologer        AstrologerAccount @relation(fields: [astrologerId], references: [id])
   messages          AstrologerChatMessage[]
+  review            AstrologerReview?
 
   @@index([userId])
   @@index([astrologerId])
   @@index([status])
+}
+
+/// Astrologer-specific free-minutes offer (e.g. "first 2 minutes
+/// free, then ₹30/min"). Spawned from an approved Profile Edit
+/// Request of section "Free sessions offer" — the request's
+/// `freeOffer` payload maps directly into these columns. Per-user
+/// consumption tracked via AstrologerFreeOfferUsage so a single
+/// offer can cap uses across the shopper base without allowing
+/// abuse (repeatedly claiming the free tier from the same user).
+model AstrologerFreeOffer {
+  id                 Int       @id @default(autoincrement())
+  astrologerId       Int
+  title              String
+  description        String?
+  /// "ASTROLOGER" | "ADMIN" — who conceived the offer. Drives copy in
+  /// the chat header and on the transactions page.
+  source             String    @default("ASTROLOGER")
+  minutesPerSession  Int       @default(0)
+  usesPerUser        Int       @default(1)
+  ratePerMinuteAfter Float     @default(0)
+  startDate          DateTime?
+  endDate            DateTime?
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  astrologer   AstrologerAccount             @relation(fields: [astrologerId], references: [id])
+  sessions     AstrologerChatSession[]
+  usages       AstrologerFreeOfferUsage[]
+
+  @@index([astrologerId])
+  @@index([active])
+}
+
+/// Tracks how many times each user has consumed an astrologer's
+/// free-minute offer. A `(offerId, userId)` unique constraint keeps
+/// the math simple — we increment `usesConsumed` on each accept.
+model AstrologerFreeOfferUsage {
+  id             Int      @id @default(autoincrement())
+  offerId        Int
+  userId         Int
+  usesConsumed   Int      @default(0)
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  offer AstrologerFreeOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  user  User                @relation(fields: [userId], references: [id])
+
+  @@unique([offerId, userId])
+  @@index([userId])
+}
+
+/// Post-session review a shopper must submit after any ENDED session.
+/// Captures the star rating + free-text comment; FE blocks dismissing
+/// the modal until submitted. One review per session (enforced by the
+/// unique sessionId).
+model AstrologerReview {
+  id           Int      @id @default(autoincrement())
+  sessionId    Int      @unique
+  astrologerId Int
+  userId       Int
+  rating       Int
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  session      AstrologerChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  astrologer   AstrologerAccount     @relation(fields: [astrologerId], references: [id])
+  user         User                  @relation(fields: [userId], references: [id])
+
+  @@index([astrologerId])
+  @@index([userId])
 }
 
 model AstrologerChatMessage {
@@ -1153,4 +1378,52 @@ enum ChatSessionStatus {
   PAUSED
   ENDED
   REJECTED
+}
+
+/// Direct support-style chat between an astrologer and the admin team.
+/// One thread per astrologer (lookups by astrologerId alone), messages
+/// store the sender kind so a single row schema serves both directions.
+/// Deliberately decoupled from AstrologerChatSession (which is the
+/// paid user↔astrologer consultation) — the two have nothing in common
+/// except the word "chat".
+/// Cross-audience notification feed for the Jyotish surface. A single
+/// row represents one push to one recipient. `recipientType` routes to
+/// either a specific astrologer (ASTROLOGER + recipientId) or the
+/// admin team as a whole (ADMIN + null recipientId). `kind` is the
+/// event category so the UI can pick an icon / colour; the human-
+/// readable `title` + `body` are rendered as-is. Optional `link`
+/// deep-links into the relevant page (edit-request detail, chat etc).
+model JyotishNotification {
+  id            Int      @id @default(autoincrement())
+  recipientType String
+  recipientId   Int?
+  kind          String
+  title         String
+  body          String
+  link          String?
+  read          Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([recipientType, recipientId, read])
+  @@index([createdAt])
+}
+
+model AdminAstrologerMessage {
+  id           Int               @id @default(autoincrement())
+  astrologerId Int
+  /// "ASTROLOGER" when the message came from the astrologer; "ADMIN"
+  /// otherwise. Kept as a plain string so we don't need a new enum.
+  senderType   String
+  /// User id (if admin) or astrologer id (echoed from astrologerId).
+  /// Useful for audit + "last seen by" logic down the line.
+  senderId     Int
+  text         String
+  readByAdmin  Boolean           @default(false)
+  readByAstro  Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+
+  astrologer   AstrologerAccount @relation(fields: [astrologerId], references: [id])
+
+  @@index([astrologerId])
+  @@index([createdAt])
 }

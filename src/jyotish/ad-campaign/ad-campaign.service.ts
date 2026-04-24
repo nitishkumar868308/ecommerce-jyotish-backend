@@ -4,7 +4,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { BookAdDto, CreateAdConfigDto } from './dto';
+import {
+  BookAdDto,
+  CreateAdConfigDto,
+  CreateAdCampaignDto,
+  UpdateAdCampaignDto,
+} from './dto';
 
 @Injectable()
 export class AdCampaignService {
@@ -49,7 +54,26 @@ export class AdCampaignService {
     const startDate = sortedDates[0];
     const endDate = sortedDates[sortedDates.length - 1];
     const days = dates.length;
-    const amount = days * config.pricePerDay;
+
+    // Price resolution: when the astrologer picked a specific
+    // AdCampaign tile, bill `campaign.price × days` so the total the
+    // caller saw on the tile is what actually lands on AdBooking.
+    // Falls back to the global AdCampaignConfig rate when no
+    // campaignId is sent (legacy + guard against stale frontend).
+    let perSlot = config.pricePerDay;
+    if (dto.campaignId) {
+      const campaign = await this.prisma.adCampaign.findUnique({
+        where: { id: dto.campaignId },
+      });
+      if (!campaign) {
+        throw new NotFoundException('Campaign not found');
+      }
+      if (!campaign.active) {
+        throw new BadRequestException('This campaign is no longer active.');
+      }
+      perSlot = campaign.price;
+    }
+    const amount = days * perSlot;
 
     return this.prisma.adBooking.create({
       data: {
@@ -62,6 +86,8 @@ export class AdCampaignService {
         currencySymbol: config.currencySymbol,
         status: 'PAID',
         paidAt: new Date(),
+        // No campaign FK on AdBooking yet; the admin bookings tab
+        // infers the per-slot rate from amount/days.
       },
       include: { astrologer: true },
     });
@@ -161,5 +187,65 @@ export class AdCampaignService {
       config = await this.prisma.adCampaignConfig.create({ data: {} });
     }
     return config;
+  }
+
+  // ─── Admin Campaign Slots ───
+  //
+  // Separate from AdBooking (which represents an astrologer buying specific
+  // days). A Campaign is admin-defined: title, slot price, how many astrologer
+  // slots exist. Astrologers can later be attached via a follow-up flow.
+
+  /** Public-facing list of active campaigns the astrologer can pick
+   *  from. Returns bare campaign rows (title + price + capacity) so the
+   *  astrologer's ad-campaigns page can render them as selectable tiles
+   *  above the booking calendar. */
+  async listActiveCampaigns() {
+    return this.prisma.adCampaign.findMany({
+      where: { active: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async listCampaigns(params: { page?: number; limit?: number; search?: string }) {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.max(1, Math.min(100, params.limit ?? 20));
+    const search = params.search?.trim();
+
+    const where = search
+      ? { title: { contains: search, mode: 'insensitive' as const } }
+      : {};
+
+    const [total, data] = await Promise.all([
+      this.prisma.adCampaign.count({ where }),
+      this.prisma.adCampaign.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+  }
+
+  async createCampaign(dto: CreateAdCampaignDto) {
+    return this.prisma.adCampaign.create({ data: dto });
+  }
+
+  async updateCampaign(id: number, dto: UpdateAdCampaignDto) {
+    const existing = await this.prisma.adCampaign.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Campaign not found');
+    return this.prisma.adCampaign.update({ where: { id }, data: dto });
+  }
+
+  async deleteCampaign(id: number) {
+    const existing = await this.prisma.adCampaign.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Campaign not found');
+    return this.prisma.adCampaign.delete({ where: { id } });
   }
 }

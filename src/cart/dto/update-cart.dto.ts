@@ -1,11 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
-  IsNumber,
-  IsOptional,
-  IsBoolean,
   IsInt,
+  IsOptional,
   IsObject,
+  IsBoolean,
 } from 'class-validator';
 
 export class UpdateCartDto {
@@ -20,91 +19,19 @@ export class UpdateCartDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  pricePerItem?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  totalPrice?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  currencySymbol?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
   @IsObject()
-  attributes?: any;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  image?: string;
+  attributes?: Record<string, string>;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
   userId?: number;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  selectedCountry?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  currency?: string;
-
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Mark the line as purchased once the order is paid. Server sets this via the payment-success hook; clients generally should not.',
+  })
   @IsOptional()
   @IsBoolean()
   is_buy?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  bulkPrice?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsInt()
-  bulkMinQty?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  offerApplied?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  productOfferApplied?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  productOfferDiscount?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsObject()
-  productOffer?: any;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsInt()
-  productOfferId?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  barCode?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  purchasePlatform?: string;
 }

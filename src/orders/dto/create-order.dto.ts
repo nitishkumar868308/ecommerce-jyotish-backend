@@ -35,12 +35,35 @@ class BillingAddressDto {
 }
 
 class OrderItemDto {
-  @ApiProperty() @IsNumber() productId: number;
+  // `Product.id` is a cuid in the current schema, not an auto-increment
+  // int, so `productId` needs to be a string. Variation ids come from
+  // `ProductVariation.id` (also a cuid).
+  @ApiProperty() @IsString() productId: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() variationId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() sku?: string;
   @ApiProperty() @IsNumber() quantity: number;
   @ApiProperty() @IsNumber() price: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() pricePerItem?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() discount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() image?: string;
+
+  // Per-line offer/bulk context the storefront computes at checkout — kept
+  // on the order so invoices / admin views can trace what was applied.
+  @ApiPropertyOptional() @IsOptional() @IsNumber() paidQty?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() freeQty?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() bulkApplied?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() offerApplied?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() offerName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() offerId?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() barCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Free-form attribute map (colour, form, etc.).',
+  })
+  @IsOptional()
+  attributes?: Record<string, unknown>;
 }
 
 export class CreateOrderDto {

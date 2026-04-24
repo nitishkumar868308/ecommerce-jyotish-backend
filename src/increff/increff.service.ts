@@ -1,5 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import type { IncreffInventoryPushDto } from './dto/increff-inventory-push.dto';
 
 /**
  * Increff integration service (scaffolded).
@@ -127,19 +132,18 @@ export class IncreffService {
   async packOrder(orderId: number): Promise<{ pushed: boolean }> {
     if (this.missingCreds('packOrder')) return { pushed: false };
 
-    // Model is `Orders` (plural) in this schema; items is a JSON column, not
-    // a relation — no `include` needed.
+    // Items moved from a JSON column to a proper OrderItem relation —
+    // include it so Increff can read sku/qty/price off the snapshot rows.
     const order = await this.prisma.orders.findUnique({
       where: { id: orderId },
+      include: { orderItems: true },
     });
     if (!order) {
       this.logger.error(`packOrder: order ${orderId} not found`);
       return { pushed: false };
     }
 
-    const itemsArray: Array<Record<string, unknown>> = Array.isArray(order.items)
-      ? (order.items as Array<Record<string, unknown>>)
-      : [];
+    const orderItems = order.orderItems ?? [];
 
     try {
       const res = await fetch(`${this.baseUrl}/packorder`, {
@@ -152,12 +156,13 @@ export class IncreffService {
           orderCode: `HECATE-${order.id}`,
           platform: 'quickgo',
           warehouseCode: 'bangalore',
-          items: itemsArray.map((i) => ({
+          items: orderItems.map((i) => ({
             sku: i.sku,
             quantity: i.quantity,
-            // Increff wants the RESELLER MRP and our selling price.
-            mrp: Number((i as any).mrp ?? (i as any).price ?? 0),
-            price: Number((i as any).price ?? 0),
+            // Increff wants the reseller MRP (use originalPrice as our
+            // pre-discount reference) and our actual selling price.
+            mrp: Number(i.originalPrice ?? i.pricePerItem ?? 0),
+            price: Number(i.pricePerItem ?? 0),
           })),
           shipping: {
             name: (order as any).shippingName,
@@ -183,6 +188,136 @@ export class IncreffService {
       );
       return { pushed: false };
     }
+  }
+
+  /**
+   * Handle Increff's inventory push webhook (PUT /increff/inventory/sync).
+   *
+   * Mirrors the legacy Next.js route one-for-one:
+   *   1. `locationCode` must match a `WareHouse.code` whose `state` is
+   *      "Bengaluru" — any other code is 400'd so stray callers can't pollute
+   *      Bangalore inventory.
+   *   2. Each line upserts `BangaloreIncreffInventory`. On an existing row
+   *      the quantity is **incremented** (not replaced); other metadata is
+   *      overwritten and the raw `payload` is stored for audit.
+   *   3. Missing `channelSkuCode` / `quantity` lines are reported on
+   *      `failureList` instead of aborting the batch.
+   */
+  async applyInventoryPush(dto: IncreffInventoryPushDto): Promise<{
+    successList: Array<{ sku: string; message: string }>;
+    failureList: Array<{ sku: string | null; reason?: string; error?: string }>;
+  }> {
+    // Validate the location code — only Bangalore-state warehouses are
+    // allowed to receive pushes via this endpoint. Spelling matches the
+    // legacy route ("Bengaluru"), so `findMany` returns whatever the admin
+    // saved against that state.
+    const warehouses = await this.prisma.wareHouse.findMany({
+      where: { city: 'Bengaluru' },
+      select: { code: true },
+    });
+    const isValidLocation = warehouses.some((w) => w.code === dto.locationCode);
+    if (!isValidLocation) {
+      throw new BadRequestException('Invalid locationCode.');
+    }
+
+    const successList: Array<{ sku: string; message: string }> = [];
+    const failureList: Array<{
+      sku: string | null;
+      reason?: string;
+      error?: string;
+    }> = [];
+
+    for (const item of dto.inventories ?? []) {
+      const sku = item.channelSkuCode;
+      const quantity = item.quantity;
+      const clientSkuId = item.client_sku_id ?? null;
+
+      if (!sku || quantity === undefined || quantity === null) {
+        failureList.push({
+          sku: sku || null,
+          reason: 'channelSkuCode, quantity are required',
+        });
+        continue;
+      }
+
+      try {
+        const existing =
+          await this.prisma.bangaloreIncreffInventory.findUnique({
+            where: {
+              locationCode_channelSkuCode: {
+                locationCode: dto.locationCode,
+                channelSkuCode: sku,
+              },
+            },
+          });
+
+        if (existing) {
+          await this.prisma.bangaloreIncreffInventory.update({
+            where: {
+              locationCode_channelSkuCode: {
+                locationCode: dto.locationCode,
+                channelSkuCode: sku,
+              },
+            },
+            data: {
+              // Match legacy behaviour: push increments the on-hand instead
+              // of overwriting. Replacing would be destructive on retries.
+              quantity: { increment: quantity },
+              minExpiry: item.minExpiry ?? null,
+              clientSkuId: clientSkuId ?? undefined,
+              channelSerialNo: item.channelSerialNo ?? null,
+              payload: item as any,
+            },
+          });
+          successList.push({ sku, message: 'Quantity updated successfully' });
+        } else {
+          await this.prisma.bangaloreIncreffInventory.create({
+            data: {
+              locationCode: dto.locationCode,
+              channelSkuCode: sku,
+              clientSkuId: clientSkuId ?? undefined,
+              quantity,
+              minExpiry: item.minExpiry ?? null,
+              channelSerialNo: item.channelSerialNo ?? null,
+              payload: item as any,
+            },
+          });
+          successList.push({ sku, message: 'Inventory created successfully' });
+        }
+      } catch (err) {
+        this.logger.error(
+          `Inventory upsert failed for ${sku}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        failureList.push({
+          sku,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    return { successList, failureList };
+  }
+
+  /**
+   * GET counterpart to the push webhook. Returns whatever Increff has
+   * written against this locationCode so they (or ops) can reconcile.
+   */
+  async readInventoryByLocation(locationCode?: string) {
+    if (!locationCode) {
+      throw new BadRequestException('locationCode is required');
+    }
+    return this.prisma.bangaloreIncreffInventory.findMany({
+      where: { locationCode },
+      select: {
+        locationCode: true,
+        channelSkuCode: true,
+        quantity: true,
+        minExpiry: true,
+        clientSkuId: true,
+      },
+    });
   }
 
   /** Fetch the invoice metadata/URL for an order from Increff. */

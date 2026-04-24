@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { urlencoded } from 'express';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -30,6 +31,10 @@ async function bootstrap() {
     }),
   );
   app.use(cookieParser());
+  // PayU posts back as application/x-www-form-urlencoded — NestJS only
+  // parses JSON by default, so the webhook would see an empty body
+  // without this middleware.
+  app.use(urlencoded({ extended: true }));
 
   // CORS
   app.enableCors({
